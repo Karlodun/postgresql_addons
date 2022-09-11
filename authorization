@@ -1,0 +1,27 @@
+-- recursive function which displays all roles to which the current roles belongs in an array
+CREATE FUNCTION public.db_roles(which_role name DEFAULT CURRENT_ROLE)
+ RETURNS name[]
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+	my_roles name[];
+BEGIN
+	WITH RECURSIVE cte AS (
+	SELECT pg_roles.oid,
+            pg_roles.rolname
+           FROM pg_roles
+          WHERE pg_roles.rolname = which_role
+          UNION
+         SELECT m.roleid,
+            pgr.rolname
+           FROM cte cte_1
+             JOIN pg_auth_members m ON m.member = cte_1.oid
+             JOIN pg_roles pgr ON pgr.oid = m.roleid
+        )
+ SELECT array_agg(cte.rolname) into my_roles
+   FROM cte
+  WHERE NOT (cte.rolname ~~ 'pg_%'::text OR cte.rolname ~~ 'rds_%'::text OR cte.rolname = 'postgres'::name);
+RETURN my_roles;
+END;
+$function$
+;
