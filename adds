@@ -1,0 +1,12 @@
+CREATE OR REPLACE FUNCTION sum_array_elements(num_array numeric[])
+ RETURNS numeric
+ LANGUAGE sql
+AS $function$
+--BEGIN
+WITH i AS (
+    SELECT UNNEST(num_array) t
+  ) SELECT sum(t) FROM i
+;
+--END;
+$function$
+;
