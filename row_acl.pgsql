@@ -29,13 +29,6 @@ END;
 $function$
 ;
 
-DROP TABLE acl_test;
-
-CREATE TABLE acl_test (id serial, reader_acl varchar[], writer_acl varchar[]);
-
-ALTER TABLE acl_test DROP COLUMN writer_acl cascade;
-ALTER TABLE acl_test ADD COLUMN writer_acl varchar[];
-
 CREATE OR REPLACE FUNCTION auto_acl_policy()
  RETURNS event_trigger
  LANGUAGE plpgsql AS
@@ -115,3 +108,11 @@ CREATE EVENT TRIGGER auto_acl_policy
     ON ddl_command_end 
     WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE')
     EXECUTE FUNCTION auto_acl_policy();
+
+
+/* Test case:
+CREATE TABLE acl_test (id serial, reader_acl varchar[], writer_acl varchar[]);
+ALTER TABLE acl_test DROP COLUMN writer_acl cascade;
+ALTER TABLE acl_test ADD COLUMN writer_acl varchar[];
+DROP TABLE acl_test;
+*/
