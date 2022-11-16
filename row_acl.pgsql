@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION public.current_inherited_roles(which_role name DEFAUL
  LANGUAGE plpgsql
 AS $function$
 /* Author: Mihail.Gershkovich@gmail.com
- * Source: https://github.com/Karlodun/postgresql_addons/auto_acl_policy
+ * Source: https://github.com/Karlodun/postgresql_addons/row_acl.pgsql
  * Licence: 
  */
 DECLARE
@@ -34,6 +34,10 @@ CREATE OR REPLACE FUNCTION auto_acl_policy()
  RETURNS event_trigger
  LANGUAGE plpgsql AS
 $$
+/* Author: Mihail.Gershkovich@gmail.com
+ * Source: https://github.com/Karlodun/postgresql_addons/row_acl.pgsql
+ * Licence: 
+ */
 DECLARE
   r record;
   runner_sql TEXT;
@@ -42,59 +46,59 @@ FOR r IN SELECT * FROM pg_event_trigger_ddl_commands()
 WHERE command_tag ~ '(CREATE|ALTER) TABLE'
 LOOP
 
-SELECT 'ALTER TABLE '||(format('%I',table_schema)||'.'||format('%I',table_name))::regclass||' ENABLE ROW LEVEL SECURITY;'
+SELECT 'ALTER TABLE '||(format('%I',table_schema)||'.'||format('%I',table_name))||' ENABLE ROW LEVEL SECURITY;'
 INTO runner_sql
 FROM information_schema."columns" c
-JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))::regclass=(format('%I',table_schema)||'.'||format('%I',table_name))::regclass
-WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass=r.object_identity::regclass
---WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass='acl_test'::regclass
+JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))=(format('%I',table_schema)||'.'||format('%I',table_name))
+WHERE (format('%I',table_schema)||'.'||format('%I',table_name))=r.object_identity
+--WHERE (format('%I',table_schema)||'.'||format('%I',table_name))='acl_test'
 AND c.column_name ~'(reader|writer)_acl'
 AND NOT pgt.rowsecurity
-GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name))::regclass, pgt.rowsecurity;
+GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name)), pgt.rowsecurity;
 IF runner_sql NOTNULL THEN
 --    RAISE NOTICE 'runner: %', runner_sql;
     EXECUTE runner_sql;
 END IF;
 
-SELECT 'CREATE POLICY reader_acl ON '||(format('%I',table_schema)||'.'||format('%I',table_name))::regclass||'
+SELECT 'CREATE POLICY reader_acl ON '||(format('%I',table_schema)||'.'||format('%I',table_name))||'
         AS PERMISSIVE
         FOR SELECT
         TO public
         USING (reader_acl ISNULL OR current_inherited_roles() && reader_acl);'
 INTO runner_sql
 FROM information_schema."columns" c
-JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))::regclass=(format('%I',table_schema)||'.'||format('%I',table_name))::regclass
+JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))=(format('%I',table_schema)||'.'||format('%I',table_name))
 LEFT JOIN pg_catalog.pg_policies pgp
-    ON (format('%I',pgp.schemaname)||'.'||format('%I',pgp.tablename))::regclass=(format('%I',table_schema)||'.'||format('%I',table_name))::regclass
+    ON (format('%I',pgp.schemaname)||'.'||format('%I',pgp.tablename))=(format('%I',table_schema)||'.'||format('%I',table_name))
     AND pgp.policyname = c.column_name
-WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass=r.object_identity::regclass
---WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass='acl_test'::regclass
+WHERE (format('%I',table_schema)||'.'||format('%I',table_name))=r.object_identity
+--WHERE (format('%I',table_schema)||'.'||format('%I',table_name))='acl_test'
 AND c.column_name ='reader_acl'
 AND pgt.rowsecurity
 AND pgp.policyname ISNULL
-GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name))::regclass, pgt.rowsecurity;
+GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name)), pgt.rowsecurity;
 IF runner_sql NOTNULL THEN
 --    RAISE NOTICE 'runner: %', runner_sql;
     EXECUTE runner_sql;
 END IF;
 
-SELECT 'CREATE POLICY writer_acl ON '||(format('%I',table_schema)||'.'||format('%I',table_name))::regclass||'
+SELECT 'CREATE POLICY writer_acl ON '||(format('%I',table_schema)||'.'||format('%I',table_name))||'
         AS PERMISSIVE
         FOR SELECT
         TO public
         USING (writer_acl ISNULL OR current_inherited_roles() && writer_acl);'
 INTO runner_sql
 FROM information_schema."columns" c
-JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))::regclass=(format('%I',table_schema)||'.'||format('%I',table_name))::regclass
+JOIN pg_catalog.pg_tables pgt ON (format('%I',pgt.schemaname)||'.'||format('%I',pgt.tablename))=(format('%I',table_schema)||'.'||format('%I',table_name))
 LEFT JOIN pg_catalog.pg_policies pgp
-    ON (format('%I',pgp.schemaname)||'.'||format('%I',pgp.tablename))::regclass=(format('%I',table_schema)||'.'||format('%I',table_name))::regclass
+    ON (format('%I',pgp.schemaname)||'.'||format('%I',pgp.tablename))=(format('%I',table_schema)||'.'||format('%I',table_name))
     AND pgp.policyname = c.column_name
-WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass=r.object_identity::regclass
---WHERE (format('%I',table_schema)||'.'||format('%I',table_name))::regclass='acl_test'::regclass
+WHERE (format('%I',table_schema)||'.'||format('%I',table_name))=r.object_identity
+--WHERE (format('%I',table_schema)||'.'||format('%I',table_name))='acl_test'
 AND c.column_name ='writer_acl'
 AND pgt.rowsecurity
 AND pgp.policyname ISNULL
-GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name))::regclass, pgt.rowsecurity;
+GROUP BY (format('%I',table_schema)||'.'||format('%I',table_name)), pgt.rowsecurity;
 IF runner_sql NOTNULL THEN
 --    RAISE NOTICE 'runner: %', runner_sql;
     EXECUTE runner_sql;
@@ -103,7 +107,9 @@ END IF;
 END LOOP;
 
 END;
-$$;
+$$
+;
+
 
 
 CREATE EVENT TRIGGER auto_acl_policy
